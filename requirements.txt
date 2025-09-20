@@ -1,0 +1,31 @@
+fastapi
+uvicorn[standard]
+
+# Document Parsing
+PyMuPDF
+python-docx
+
+# Vector Store and Embeddings
+faiss-cpu
+sentence-transformers
+
+# NLP for Keyword Extraction
+spacy
+
+# AI Orchestration
+langchain
+
+# Local LLM Execution
+torch
+transformers
+accelerate
+bitsandbytes
+einops                  # Often required by newer transformer models like Phi-3
+
+# Database
+sqlalchemy
+psycopg2-binary
+
+# Utilities
+python-dotenv
+python-multipart
