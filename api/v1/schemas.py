@@ -1,20 +1,27 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import List, Optional
 
+# Defines the structure for a single resume's analysis result.
 class AnalysisResult(BaseModel):
-    """Defines the structure for a single resume analysis result."""
-    file_name: str = Field(..., description="The name of the resume file.")
-    relevance_score: int = Field(..., ge=0, le=100, description="The final relevance score (0-100).")
-    verdict: str = Field(..., description="The final verdict (e.g., 'High', 'Medium', 'Low').")
-    missing_skills: List[str] = Field(..., description="A list of skills missing from the resume.")
-    feedback: str = Field(..., description="Personalized feedback for the candidate.")
-
+    file_name: str
+    relevance_score: int
+    verdict: str
+    missing_skills: List[str]
+    feedback: str
+    
     class Config:
-        # This allows the model to be created from ORM objects (like SQLAlchemy models)
         from_attributes = True
 
+# Defines the overall response structure for a job description analysis.
 class JobDescriptionAnalysis(BaseModel):
-    """Defines the structure for the full analysis of a job description."""
-    job_description_file: str = Field(..., description="The name of the job description file.")
-    total_resumes_analyzed: int = Field(..., description="Total number of resumes processed.")
-    results: List[AnalysisResult] = Field(..., description="A list of analysis results for each resume.")
+    # This new field will hold the ID of the document created in Firestore.
+    # It's optional, so the API won't fail if the save operation doesn't return an ID.
+    firestore_job_id: Optional[str] = None 
+    
+    job_description_file: str
+    total_resumes_analyzed: int
+    results: List[AnalysisResult]
+
+    class Config:
+        from_attributes = True
+

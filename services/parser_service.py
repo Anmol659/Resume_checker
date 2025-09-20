@@ -1,38 +1,45 @@
 import fitz  # PyMuPDF
 import docx
-from typing import Union
+from typing import Union, IO
+import io
 
-def parse_pdf(file_path: str) -> str:
-    """Extracts text from a PDF file."""
+# No changes needed in these synchronous helper functions
+def parse_pdf(file_content: bytes) -> str:
+    """Extracts text from PDF file content in bytes."""
     try:
-        doc = fitz.open(file_path)
+        doc = fitz.open(stream=file_content, filetype="pdf")
         text = ""
         for page in doc:
             text += page.get_text()
         return text
     except Exception as e:
-        print(f"Error parsing PDF {file_path}: {e}")
+        print(f"Error parsing PDF content: {e}")
         return ""
 
-def parse_docx(file_path: str) -> str:
-    """Extracts text from a DOCX file."""
+def parse_docx(file_content: bytes) -> str:
+    """Extracts text from a DOCX file stream."""
     try:
-        doc = docx.Document(file_path)
+        file_stream = io.BytesIO(file_content)
+        doc = docx.Document(file_stream)
         text = "\n".join([para.text for para in doc.paragraphs])
         return text
     except Exception as e:
-        print(f"Error parsing DOCX {file_path}: {e}")
+        print(f"Error parsing DOCX content: {e}")
         return ""
 
-def parse_document(file_path: str) -> Union[str, None]:
+# CORRECTED: This function is now asynchronous
+async def parse_document(file_stream: IO[bytes], filename: str) -> Union[str, None]:
     """
-    Parses a document based on its file extension.
-    Returns the extracted text or None if the format is unsupported.
+    Asynchronously reads the content from a file stream and parses it.
     """
-    if file_path.lower().endswith(".pdf"):
-        return parse_pdf(file_path)
-    elif file_path.lower().endswith(".docx"):
-        return parse_docx(file_path)
+    # CORRECTED: Awaiting the async read() operation
+    file_content = await file_stream.read()
+    
+    if filename.lower().endswith(".pdf"):
+        return parse_pdf(file_content)
+    elif filename.lower().endswith(".docx"):
+        return parse_docx(file_content)
     else:
-        print(f"Unsupported file format for {file_path}")
+        print(f"Unsupported file format for {filename}")
         return None
+

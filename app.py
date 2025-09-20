@@ -1,28 +1,39 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from api.v1.routers import analysis
-from services import llm_service
 
-# The lifespan manager correctly loads the model on startup
+# Import your API router
+from api.v1.routers import analysis
+
+# Import your services for initialization
+from services import llm_service, vector_service
+from db import database, models
+
+# Create the database tables if they don't exist
+# This line will connect to your Supabase DB on startup
+models.Base.metadata.create_all(bind=database.engine)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("Application startup: Loading AI Model...")
+    # Load AI models and connect to services on startup
+    print("Application startup: Loading AI Models...")
     llm_service.load_model()
+    vector_service.load_embedding_model()
+    print("Application startup complete.")
     yield
+    # Clean up resources on shutdown (optional)
     print("Application shutdown.")
 
 app = FastAPI(
+    lifespan=lifespan,
     title="Automated Resume Relevance Checker",
     description="An AI-powered system to analyze and score resumes against job descriptions.",
-    version="1.0.0",
-    lifespan=lifespan  # This line tells FastAPI to use the lifespan manager
+    version="1.0.0"
 )
 
-# Include the API router
+# Include your API router
 app.include_router(analysis.router, prefix="/api/v1")
 
 @app.get("/", tags=["Health Check"])
 def read_root():
-    """A simple health check endpoint to confirm the API is running."""
-    return {"status": "API is running!"}
+    return {"status": "API is running."}
 

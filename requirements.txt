@@ -17,7 +17,7 @@ langchain
 
 # Local LLM Execution
 torch
-transformers
+transformers==4.41.2
 accelerate
 bitsandbytes
 einops                  # Often required by newer transformer models like Phi-3
@@ -29,3 +29,7 @@ psycopg2-binary
 # Utilities
 python-dotenv
 python-multipart
+sentence-transformers
+httpx
+sqlalchemy
+psycopg2-binary

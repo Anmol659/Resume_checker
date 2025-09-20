@@ -1,66 +1,57 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, status
-import tempfile
-import os
-from .. import schemas
-# --- This is the crucial import ---
-from services import parser_service, analysis_service
+import logging
+from typing import Dict, Any, IO
+from . import parser_service, vector_service, llm_service
 
-router = APIRouter(
-    prefix="/analyze",
-    tags=["Analysis"]
-)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-@router.post("/resume", response_model=schemas.AnalysisResult)
-async def analyze_resume(
-    job_description: UploadFile = File(..., description="The Job Description file (PDF or DOCX)."),
-    resume: UploadFile = File(..., description="The Resume file (PDF or DOCX).")
-):
+async def perform_hybrid_analysis(resume_file: IO[bytes], jd_file: IO[bytes]) -> Dict[str, Any]:
     """
-    Analyzes a resume against a job description and returns a relevance score and feedback.
+    Orchestrates the new hybrid analysis pipeline.
     """
-    # Use a temporary directory to safely handle file uploads
-    with tempfile.TemporaryDirectory() as temp_dir:
-        try:
-            # --- Save and process Job Description ---
-            jd_path = os.path.join(temp_dir, job_description.filename)
-            with open(jd_path, "wb") as f:
-                f.write(await job_description.read())
-            
-            print(f"Parsing Job Description: {job_description.filename}")
-            jd_text = parser_service.parse_document(jd_path)
-            if not jd_text:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Could not parse the job description file: {job_description.filename}"
-                )
+    logger.info(f"--- Starting Hybrid Analysis for: {resume_file.filename} ---")
 
-            # --- Save and process Resume ---
-            resume_path = os.path.join(temp_dir, resume.filename)
-            with open(resume_path, "wb") as f:
-                f.write(await resume.read())
-            
-            print(f"Parsing Resume: {resume.filename}")
-            resume_text = parser_service.parse_document(resume_path)
-            if not resume_text:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Could not parse the resume file: {resume.filename}"
-                )
+    await resume_file.seek(0)
+    await jd_file.seek(0)
+    
+    logger.info("Parsing document contents...")
+    resume_text = await parser_service.parse_document(resume_file, resume_file.filename)
+    jd_text = await parser_service.parse_document(jd_file, jd_file.filename)
 
-            # --- This is the key change: Call the REAL analysis service ---
-            print("Handing off to analysis service...")
-            result = analysis_service.analyze_resume(resume_text=resume_text, jd_text=jd_text)
-            
-            return result
+    if not resume_text or not jd_text:
+        return {
+            "file_name": resume_file.filename,
+            "relevance_score": 0,
+            "verdict": "Error",
+            "missing_skills": [],
+            "feedback": "Could not parse one or both documents."
+        }
 
-        except HTTPException as e:
-            # Re-raise HTTP exceptions to be handled by FastAPI
-            raise e
-        except Exception as e:
-            # Catch any other unexpected errors
-            print(f"An unexpected error occurred: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"An unexpected error occurred during analysis: {str(e)}"
-            )
+    logger.info("Step 1: Getting semantic similarity score...")
+    semantic_score = vector_service.calculate_similarity(resume_text, jd_text)
+    
+    logger.info("Step 2: Identifying missing skills via keyword search...")
+    jd_skills = {"python", "spark", "sql", "data pipelines", "kafka", "c++", "mechanical", "manufacturing"} 
+    missing_skills = sorted([skill for skill in jd_skills if skill not in resume_text.lower()])
+
+    logger.info("Step 3: Getting qualitative feedback from LLM...")
+    # CORRECTED: Changed ll_service to llm_service
+    llm_feedback = await llm_service.get_llm_feedback(resume_text, jd_text)
+
+    final_score = int(semantic_score * 100)
+    verdict = "Low"
+    if final_score >= 75:
+        verdict = "High"
+    elif final_score >= 50:
+        verdict = "Medium"
+        
+    logger.info(f"--- Analysis Complete for: {resume_file.filename} | Score: {final_score} ---")
+
+    return {
+        "file_name": resume_file.filename,
+        "relevance_score": final_score,
+        "verdict": verdict,
+        "missing_skills": missing_skills,
+        "feedback": llm_feedback
+    }
 
