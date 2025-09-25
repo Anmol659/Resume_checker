@@ -2,7 +2,7 @@ import httpx
 import json
 
 # Replace with your actual Google AI Studio API key
-API_KEY = "AIzaSyCjer1zS0j4JRvLSkqM8tp27X72J9qE01w"
+API_KEY = "GOOGLE_API_KEY"
 MODEL_NAME = "gemini-1.5-flash-latest"
 API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL_NAME}:generateContent"
 
